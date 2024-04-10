@@ -1,0 +1,78 @@
+import cv2
+import math
+
+
+def draw(target_img, x, y, w, h, text='', color=(255, 255, 255)):
+    x1 = int(x)
+    y1 = int(y)
+    x2 = int(x + w)
+    y2 = int(y + h)
+    cv2.line(target_img, (x1, y1), (x1 + 15, y1), color, 2)
+    cv2.line(target_img, (x1, y1), (x1, y1 + 15), color, 2)
+
+    cv2.line(target_img, (x2, y1), (x2 - 15, y1), color, 2)
+    cv2.line(target_img, (x2, y1), (x2, y1 + 15), color, 2)
+
+    cv2.line(target_img, (x2, y2), (x2 - 15, y2), color, 2)
+    cv2.line(target_img, (x2, y2), (x2, y2 - 15), color, 2)
+
+    cv2.line(target_img, (x1, y2), (x1 + 15, y2), color, 2)
+    cv2.line(target_img, (x1, y2), (x1, y2 - 15), color, 2)
+
+    if text:
+        cv2.putText(target_img, str(text), (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+
+
+def face(frame, cascade):
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    detections = cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+    return detections
+
+
+class Mesafe:
+    def __init__(self, yuz_en, yuz_pixel, ekran_en, kamera_aci):
+        self.en = float(yuz_en)
+        self.pixel = float(yuz_pixel)
+        self.ek_en = ekran_en
+        self.aci = math.radians(float(kamera_aci))
+
+    def hesapla(self):
+        oran = self.ek_en / self.pixel
+        taban = oran * self.en
+        h = taban / 2 / math.tan(self.aci/2)
+        return h
+
+
+if __name__ == "__main__":
+    liste=[]
+    cam = cv2.VideoCapture(0)
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
+    yuz_eni = input("Yüzünün enini gir (cm): ")
+    kamera_aci = 88
+    while True:
+        _, frame = cam.read()
+        frame = cv2.flip(frame, 1)
+        detections = face(frame, face_cascade)
+        if len(detections)>0:
+            for x, y, w, h in detections:
+                liste.append(w)
+                if len(liste)>15:
+                    liste.clear()
+                else:
+                    fark = abs(liste[0] - liste[-1])
+                    print(f"Fark: {fark}")
+                    if fark > 20:
+                        t = liste[-1]
+                    else:
+                        t = liste[0]
+                obj = Mesafe(yuz_eni, t, 1280, kamera_aci)
+                uzaklik = obj.hesapla()
+                draw(frame, x, y, w, h, f"Uzaklık: {uzaklik:.2f} cm")
+        cv2.imshow("Frame", frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cam.release()
+    cv2.destroyAllWindows()
